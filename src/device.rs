@@ -2,6 +2,7 @@ use std::convert::TryFrom;
 use std::path::Path;
 use std::sync::Arc;
 use std::{io, mem};
+use std::ffi::CString;
 
 use libc;
 
@@ -35,7 +36,10 @@ impl Device {
     /// ```
     pub fn new(index: usize) -> io::Result<Self> {
         let path = format!("{}{}", "/dev/video", index);
-        let fd = v4l2::open(path, libc::O_RDWR | libc::O_NONBLOCK)?;
+        let fd = unsafe {
+            let path = CString::new(path.as_bytes()).unwrap();
+            libc::open(path.as_ptr(), libc::O_RDWR | libc::O_NONBLOCK)
+        };
 
         if fd == -1 {
             return Err(io::Error::last_os_error());
@@ -217,7 +221,7 @@ impl Device {
                     return Err(io::Error::new(
                         io::ErrorKind::Other,
                         "cannot handle control type",
-                    ))
+                    ));
                 }
             };
 
@@ -402,7 +406,7 @@ impl Handle {
                     events,
                     revents: 0,
                 }]
-                .as_mut_ptr(),
+                    .as_mut_ptr(),
                 1,
                 timeout,
             )
